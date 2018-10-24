@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27703.2042
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rpiMag", "rpiMag\rpiMag.vcxproj", "{3406C354-934D-4FFD-9909-606AAF70C710}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|ARM = Debug|ARM
+		Release|ARM = Release|ARM
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3406C354-934D-4FFD-9909-606AAF70C710}.Debug|ARM.ActiveCfg = Debug|ARM
+		{3406C354-934D-4FFD-9909-606AAF70C710}.Debug|ARM.Build.0 = Debug|ARM
+		{3406C354-934D-4FFD-9909-606AAF70C710}.Release|ARM.ActiveCfg = Release|ARM
+		{3406C354-934D-4FFD-9909-606AAF70C710}.Release|ARM.Build.0 = Release|ARM
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BAE6DFB5-8187-44B5-8C38-8014B68BF7D7}
+	EndGlobalSection
+EndGlobal

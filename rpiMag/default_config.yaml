@@ -1,0 +1,5 @@
+device: /dev/i2c-3
+outsuffix: _i2c-3
+pattern: "[%D %H:%M:%S.%e] %v"
+data_pattern: "{};{};{}"
+output_dir: ""
