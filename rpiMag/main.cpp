@@ -4,24 +4,23 @@
 
 
 #include <wiringPi.h>
-#include <wiringPiI2C.h>
 #include <cstdio>
 #include "MAG3110.h"
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 #include <cxxopts.hpp>
 
-// LED Pin - wiringPi pin 0 is BCM_GPIO 17.
-// we have to use BCM numbering when initializing with wiringPiSetupSys
-// when choosing a different pin number please use the BCM numbering, also
-// update the Property Pages - Build Events - Remote Post-Build Event command 
-// which uses gpio export for setup for wiringPiSetupSys
-#define	LED	17
 MAG3110 mag3110;
 
 std::shared_ptr<spdlog::logger> error_logger;
 cxxopts::Options options("rpiMag", "Magnetometer data logger");
 
+/**
+ * Pouzite externe kniznice:
+ * https://github.com/gabime/spdlog - logger
+ * https://github.com/jbeder/yaml-cpp - parser pre yaml subor, zakladna konfuguracia
+ * https://github.com/jarro2783/cxxopts - pomocna utilita na spracovanie command line prikazov
+ */
 
 int main(int argc, char* argv[])
 {
@@ -122,7 +121,7 @@ int main(int argc, char* argv[])
 
 	error_logger = spdlog::basic_logger_mt("error_logger", "error-log" + outsuffix + ".txt");
 
-
+	// Initialization of wiringPi library
 	wiringPiSetupSys();
 	mag3110.initialize(i2c_device_name.c_str());
 	mag3110.reset();
