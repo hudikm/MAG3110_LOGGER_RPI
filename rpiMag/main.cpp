@@ -9,6 +9,7 @@
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 #include <cxxopts.hpp>
+#include "config_vars.h"
 
 MAG3110 mag3110;
 
@@ -22,17 +23,72 @@ cxxopts::Options options("rpiMag", "Magnetometer data logger");
  * https://github.com/jarro2783/cxxopts - pomocna utilita na spracovanie command line prikazov
  */
 
+void measurement_loop(Config_vars& config_vars)
+{
+	// Initialization of wiringPi library
+	wiringPiSetupSys();
+	mag3110.initialize(config_vars.i2c_device_name.c_str());
+	mag3110.reset();
+
+	if (config_vars.runCalibration) mag3110.calibration_loop();
+
+	mag3110.start();
+
+	if (!config_vars.outdir.empty())
+	{
+		// if windows style file path is used change it to unix
+		std::replace(config_vars.outdir.begin(), config_vars.outdir.end(), '\\', '/'); // replace all '\' to '/' 
+		// if dir path is not ended with '/' add to end
+		const auto ch = config_vars.outdir.back();
+		if (ch != '/')
+		{
+			config_vars.outdir += "/";
+		}
+	}
+
+	auto const async_file_path = config_vars.outdir + "mag_log" + config_vars.outsuffix + ".txt";
+	auto async_file = spdlog::basic_logger_mt<spdlog::async_factory>("async_file_logger", async_file_path);
+	if (config_vars.configFile["pattern"].IsDefined())
+	{
+		async_file->set_pattern(config_vars.configFile["pattern"].as<std::string>());
+	}
+
+	if (config_vars.configFile["data_pattern"].IsDefined())
+	{
+		config_vars.pattern = config_vars.configFile["data_pattern"].as<std::string>();
+	}
+	async_file->info("Calibration:{}, offset x: {}, offset y: {}, offset x: {}", config_vars.runCalibration,
+	                 mag3110.readOffset(MAG3110_X_AXIS), mag3110.readOffset(MAG3110_Y_AXIS),
+	                 mag3110.readOffset(MAG3110_Z_AXIS));
+
+	mag3110.setDR_OS(MAG3110_DR_OS_80_16);
+	std::cout << "Start mag loop" << std::endl;
+	std::cout << "Output: " << async_file_path << " Suffix:" << config_vars.outsuffix << std::endl;
+	int16_t x;
+	int16_t y;
+	int16_t z;
+	while (true)
+	{
+		mag3110.readMag(&x, &y, &z);
+		if (config_vars.verboseMode) printf("x: %d ,y: %d,z: %d \n\r", x, y, z);
+		async_file->info(config_vars.pattern.c_str(), x, y, z);
+		delay(10);
+		while (!mag3110.dataReady()) { delayMicroseconds(250); };
+	}
+}
+
 int main(int argc, char* argv[])
 {
-	int16_t x, y, z;
-	YAML::Node configFile;
-	std::string filename = "default_config.yaml"; // Default file config
-	std::string i2c_device_name;
-	std::string outsuffix;
-	std::string pattern = "{} ,{}, {}";
-	std::basic_string<char> outdir = "";
-	bool verboseMode = false;
-	bool runCalibration = false;
+	// YAML::Node configFile;
+	// std::string filename = "default_config.yaml"; // Default file config
+	// std::string i2c_device_name = "";
+	// std::string outsuffix = "";
+	// std::string pattern = "{} ,{}, {}";
+	// std::basic_string<char> outdir = "";
+	// bool verboseMode = false;
+	// bool runCalibration = false;
+	Config_vars config_vars;
+
 	/*
 	 * Command line options
 	 */
@@ -45,77 +101,91 @@ int main(int argc, char* argv[])
 		("c,calibration", "Run with calibration")
 		("help", "Print this help");
 
-	auto result = options.parse(argc, argv);
-
-	if (result.count("help"))
-	{
-		std::cout << options.help({""}) << std::endl;
-		exit(0);
-	}
-
-	if (result.count("file"))
-	{
-		filename = result["file"].as<std::string>();
-	}
-
-	if (result.count("verbose"))
-	{
-		verboseMode = true;
-	}
-
 	try
 	{
-		configFile = YAML::LoadFile(filename);
-		if (result.count("device"))
+		auto result = options.parse(argc, argv);
+
+
+		if (result.count("help"))
 		{
-			i2c_device_name = result["device"].as<std::string>();
-		}
-		else
-		{
-			i2c_device_name = configFile["device"].as<std::string>();
+			std::cout << options.help({""}) << std::endl;
+			exit(0);
 		}
 
-		if (result.count("outsuffix"))
+		if (result.count("file"))
 		{
-			outsuffix = result["outsuffix"].as<std::string>();
+			config_vars.set_filename(result["file"].as<std::string>());
 		}
-		else
+
+		if (result.count("verbose"))
 		{
-			if (configFile["outsuffix"].IsDefined())
-				outsuffix = configFile["outsuffix"].as<std::string>();
+			config_vars.set_verbose_mode(true);
+		}
+
+		try
+		{
+			config_vars.configFile = YAML::LoadFile(config_vars.get_filename());
+			if (result.count("device"))
+			{
+				config_vars.i2c_device_name = result["device"].as<std::string>();
+			}
 			else
 			{
-				const auto n = i2c_device_name.find("i2c");
-				if (n != std::string::npos)
+				config_vars.i2c_device_name = config_vars.configFile["device"].as<std::string>();
+			}
+
+			if (result.count("outsuffix"))
+			{
+				config_vars.outsuffix = result["outsuffix"].as<std::string>();
+			}
+			else
+			{
+				if (config_vars.configFile["outsuffix"].IsDefined())
+					config_vars.outsuffix = config_vars.configFile["outsuffix"].as<std::string>();
+				else
 				{
-					outsuffix = "_" + i2c_device_name.substr(n);
+					const auto n = config_vars.i2c_device_name.find("i2c");
+					if (n != std::string::npos)
+					{
+						config_vars.outsuffix = "_" + config_vars.i2c_device_name.substr(n);
+					}
 				}
 			}
-		}
 
-		if (result.count("output_dir"))
-		{
-			outdir = result["output_dir"].as<std::string>();
+			if (result.count("output_dir"))
+			{
+				config_vars.outdir = result["output_dir"].as<std::string>();
+			}
+			else
+			{
+				if (config_vars.configFile["output_dir"].IsDefined())
+					config_vars.outdir = config_vars.configFile["output_dir"].as<std::string>();
+			}
+
+			if (result.count("calibration"))
+			{
+				config_vars.runCalibration = true;
+			}
+			else
+			{
+				if (config_vars.configFile["calibration"].IsDefined())
+					config_vars.runCalibration = config_vars.configFile["calibration"].as<bool>();
+			}
 		}
-		else
+		catch (const YAML::RepresentationException& e)
 		{
-			if (configFile["output_dir"].IsDefined())
-				outdir = configFile["output_dir"].as<std::string>();
+			std::cout << "Error with Yaml file: " << e.msg << std::endl;
+			exit(EXIT_FAILURE);
 		}
-		
-		if (result.count("calibration"))
+		catch (const YAML::BadFile& e)
 		{
-			runCalibration = true;
-		}
-		else
-		{
-			if (configFile["calibration"].IsDefined())
-				runCalibration = configFile["calibration"].as<bool>();
+			std::cout << e.msg << "\n\r Maybe default config file 'default_config.yaml' is missing ?" << std::endl;
+			exit(EXIT_FAILURE);
 		}
 	}
-	catch (const YAML::RepresentationException& e)
+	catch (const cxxopts::OptionParseException& e)
 	{
-		std::cout << "Error with Yaml file: " << e.msg << std::endl;
+		std::cout << e.what() << "\n\rFor help use --help options" << std::endl;
 		exit(EXIT_FAILURE);
 	}
 	catch(YAML::BadFile &e)
@@ -124,54 +194,9 @@ int main(int argc, char* argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	error_logger = spdlog::basic_logger_mt("error_logger", "error-log" + outsuffix + ".txt");
+	error_logger = spdlog::basic_logger_mt("error_logger", "error-log" + config_vars.outsuffix + ".txt");
 
-	// Initialization of wiringPi library
-	wiringPiSetupSys();
-	mag3110.initialize(i2c_device_name.c_str());
-	mag3110.reset();
-
-	if (runCalibration) mag3110.calibration_loop();
-
-	mag3110.start();
-
-	if (!outdir.empty())
-	{
-		// if windows style of file path is used replace to unix
-		std::replace(outdir.begin(), outdir.end(), '\\', '/'); // replace all '\' to '/' 
-		// if dir path is not ended with '/' add to end
-		const auto ch = outdir.back();
-		if (ch != '/')
-		{
-			outdir += "/";
-		}
-	}
-
-	auto async_file_path = outdir + "mag_log" + outsuffix + ".txt";
-	auto async_file = spdlog::basic_logger_mt<spdlog::async_factory>("async_file_logger", async_file_path);
-	if (configFile["pattern"].IsDefined())
-	{
-		async_file->set_pattern(configFile["pattern"].as<std::string>());
-	}
-
-	if (configFile["data_pattern"].IsDefined())
-	{
-		pattern = configFile["data_pattern"].as<std::string>();
-	}
-	async_file->info("Calibration:{}, offset x: {}, offset y: {}, offset x: {}", runCalibration,
-	                 mag3110.readOffset(MAG3110_X_AXIS), mag3110.readOffset(MAG3110_Y_AXIS),
-	                 mag3110.readOffset(MAG3110_Z_AXIS));
-
-	mag3110.setDR_OS(MAG3110_DR_OS_80_16);
-	std::cout << "Start mag loop" << std::endl;
-	std::cout << "Output: " << async_file_path << " Suffix:" << outsuffix << std::endl;
-	while (true)
-	{
-		mag3110.readMag(&x, &y, &z);
-		if (verboseMode) printf("x: %d ,y: %d,z: %d \n\r", x, y, z);
-		async_file->info(pattern.c_str(), x, y, z);
-		delay(10);
-		while (!mag3110.dataReady()) { delayMicroseconds(250); };
-	}
+	// Start measurement loop
+	measurement_loop(config_vars);
 	return 0;
 }
