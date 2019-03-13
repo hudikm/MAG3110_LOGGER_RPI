@@ -59,10 +59,12 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="config_vars.cpp" />
     <ClCompile Include="MAG3110.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="config_vars.h" />
     <ClInclude Include="cxxopts.hpp" />
     <ClInclude Include="MAG3110.h" />
     <ClInclude Include="resource.h" />
