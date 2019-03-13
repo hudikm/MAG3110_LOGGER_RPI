@@ -35,6 +35,10 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
     <MultiProcNumber>4</MultiProcNumber>
+    <AdditionalSourcesToCopyMapping>$(MSBuildProjectDirectory)\default_config.yaml:=$(RemoteOutDir)/default_config.yaml;$(AdditionalSourcesToCopyMapping)</AdditionalSourcesToCopyMapping>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+    <AdditionalSourcesToCopyMapping>$(MSBuildProjectDirectory)\default_config.yaml:=$(RemoteOutDir)/default_config.yaml;$(AdditionalSourcesToCopyMapping)</AdditionalSourcesToCopyMapping>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
