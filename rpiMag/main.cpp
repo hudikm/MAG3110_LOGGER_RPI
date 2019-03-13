@@ -188,11 +188,7 @@ int main(int argc, char* argv[])
 		std::cout << e.what() << "\n\rFor help use --help options" << std::endl;
 		exit(EXIT_FAILURE);
 	}
-	catch(YAML::BadFile &e)
-	{
-		std::cout << e.msg << "\n\r Maybe default config file 'default_config.yaml' is missing ?" << std::endl;
-		exit(EXIT_FAILURE);
-	}
+	
 
 	error_logger = spdlog::basic_logger_mt("error_logger", "error-log" + config_vars.outsuffix + ".txt");
 
