@@ -101,82 +101,96 @@ int main(int argc, char* argv[])
 		("c,calibration", "Run with calibration")
 		("help", "Print this help");
 
-	auto result = options.parse(argc, argv);
-
-	if (result.count("help"))
-	{
-		std::cout << options.help({""}) << std::endl;
-		exit(0);
-	}
-
-	if (result.count("file"))
-	{
-		config_vars.set_filename(result["file"].as<std::string>());
-	}
-
-	if (result.count("verbose"))
-	{
-		config_vars.set_verbose_mode(true);
-	}
-
 	try
 	{
-		config_vars.configFile = YAML::LoadFile(config_vars.get_filename());
-		if (result.count("device"))
+		auto result = options.parse(argc, argv);
+
+
+		if (result.count("help"))
 		{
-			config_vars.i2c_device_name = result["device"].as<std::string>();
-		}
-		else
-		{
-			config_vars.i2c_device_name = config_vars.configFile["device"].as<std::string>();
+			std::cout << options.help({""}) << std::endl;
+			exit(0);
 		}
 
-		if (result.count("outsuffix"))
+		if (result.count("file"))
 		{
-			config_vars.outsuffix = result["outsuffix"].as<std::string>();
+			config_vars.set_filename(result["file"].as<std::string>());
 		}
-		else
+
+		if (result.count("verbose"))
 		{
-			if (config_vars.configFile["outsuffix"].IsDefined())
-				config_vars.outsuffix = config_vars.configFile["outsuffix"].as<std::string>();
+			config_vars.set_verbose_mode(true);
+		}
+
+		try
+		{
+			config_vars.configFile = YAML::LoadFile(config_vars.get_filename());
+			if (result.count("device"))
+			{
+				config_vars.i2c_device_name = result["device"].as<std::string>();
+			}
 			else
 			{
-				const auto n = config_vars.i2c_device_name.find("i2c");
-				if (n != std::string::npos)
+				config_vars.i2c_device_name = config_vars.configFile["device"].as<std::string>();
+			}
+
+			if (result.count("outsuffix"))
+			{
+				config_vars.outsuffix = result["outsuffix"].as<std::string>();
+			}
+			else
+			{
+				if (config_vars.configFile["outsuffix"].IsDefined())
+					config_vars.outsuffix = config_vars.configFile["outsuffix"].as<std::string>();
+				else
 				{
-					config_vars.outsuffix = "_" + config_vars.i2c_device_name.substr(n);
+					const auto n = config_vars.i2c_device_name.find("i2c");
+					if (n != std::string::npos)
+					{
+						config_vars.outsuffix = "_" + config_vars.i2c_device_name.substr(n);
+					}
 				}
 			}
-		}
 
-		if (result.count("output_dir"))
-		{
-			config_vars.outdir = result["output_dir"].as<std::string>();
-		}
-		else
-		{
-			if (config_vars.configFile["output_dir"].IsDefined())
-				config_vars.outdir = config_vars.configFile["output_dir"].as<std::string>();
-		}
+			if (result.count("output_dir"))
+			{
+				config_vars.outdir = result["output_dir"].as<std::string>();
+			}
+			else
+			{
+				if (config_vars.configFile["output_dir"].IsDefined())
+					config_vars.outdir = config_vars.configFile["output_dir"].as<std::string>();
+			}
 
-		if (result.count("calibration"))
-		{
-			config_vars.runCalibration = true;
+			if (result.count("calibration"))
+			{
+				config_vars.runCalibration = true;
+			}
+			else
+			{
+				if (config_vars.configFile["calibration"].IsDefined())
+					config_vars.runCalibration = config_vars.configFile["calibration"].as<bool>();
+			}
 		}
-		else
+		catch (const YAML::RepresentationException& e)
 		{
-			if (config_vars.configFile["calibration"].IsDefined())
-				config_vars.runCalibration = config_vars.configFile["calibration"].as<bool>();
+			std::cout << "Error with Yaml file: " << e.msg << std::endl;
+			exit(EXIT_FAILURE);
+		}
+		catch (const YAML::BadFile& e)
+		{
+			std::cout << e.msg << "\n\r Maybe default config file 'default_config.yaml' is missing ?" << std::endl;
+			exit(EXIT_FAILURE);
 		}
 	}
-	catch (const YAML::RepresentationException& e)
+	catch (const cxxopts::OptionParseException& e)
 	{
-		std::cout << "Error with Yaml file: " << e.msg << std::endl;
+		std::cout << e.what() << "\n\rFor help use --help options" << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
 	error_logger = spdlog::basic_logger_mt("error_logger", "error-log" + config_vars.outsuffix + ".txt");
-	
+
 	// Start measurement loop
 	measurement_loop(config_vars);
 	return 0;
